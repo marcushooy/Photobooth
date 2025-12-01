@@ -5,7 +5,7 @@ import { Download, RefreshCw, Palette, Image as ImageIcon } from 'lucide-react';
 import characterImg from '../assets/character_nobg_v2.png';
 import character2Img from '../assets/character2_nobg.png';
 import tiaraImg from '../assets/tiara.png';
-import { LayoutType } from './Camera';
+import { type LayoutType } from './Camera';
 
 interface PhotoStripProps {
     photos: string[];

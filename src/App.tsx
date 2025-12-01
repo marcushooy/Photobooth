@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Landing } from './components/Landing';
-import { CameraView, LayoutType } from './components/Camera';
+import { CameraView, type LayoutType } from './components/Camera';
 import { PhotoStrip } from './components/PhotoStrip';
 import { Heart } from 'lucide-react';
 
