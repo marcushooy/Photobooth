@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Download, RefreshCw, Palette, Image as ImageIcon } from 'lucide-react';
+import { Download, RefreshCw, Palette, Image as ImageIcon, Loader2, RotateCcw } from 'lucide-react';
 import characterImg from '../assets/character_nobg_v2.png';
 import character2Img from '../assets/character2_nobg.png';
 import tiaraImg from '../assets/tiara.png';
@@ -11,9 +11,22 @@ interface PhotoStripProps {
     photos: string[];
     layout: LayoutType;
     onRetake: () => void;
+    onRetakePhoto: (index: number) => void;
 }
 
-const THEMES = [
+interface Theme {
+    id: string;
+    name: string;
+    bg: string;
+    text: string;
+    border: string;
+    font: string;
+    hasTiara?: boolean;
+    hasCharacter?: boolean;
+    hasCharacter2?: boolean;
+}
+
+const THEMES: Theme[] = [
     {
         id: 'princess',
         name: 'Princess',
@@ -49,12 +62,30 @@ const THEMES = [
         border: '4px dashed #ff6b6b',
         font: 'Quicksand'
     },
+    {
+        id: 'starry',
+        name: 'Starry Night',
+        bg: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+        text: '#ffd700',
+        border: '4px solid rgba(255,255,255,0.3)',
+        font: 'Pacifico'
+    },
+    {
+        id: 'cottage',
+        name: 'Cottagecore',
+        bg: '#d4edda',
+        text: '#5a3e2b',
+        border: '4px dashed #7da87b',
+        font: 'Quicksand'
+    },
 ];
 
-export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake }) => {
+export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake, onRetakePhoto }) => {
     const stripRef = useRef<HTMLDivElement>(null);
-    const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
+    const [selectedTheme, setSelectedTheme] = useState<Theme>(THEMES[0]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [caption, setCaption] = useState('xoxo');
+    const [hoveredPhoto, setHoveredPhoto] = useState<number | null>(null);
 
     const isGridLayout = layout === '2x2';
     const containerStyle = isGridLayout
@@ -131,9 +162,6 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                     className="shadow-lg"
                     style={{
                         background: selectedTheme.bg,
-                        backgroundImage: (selectedTheme as any).bgImage ? `url(${(selectedTheme as any).bgImage})` : 'none',
-                        backgroundSize: (selectedTheme as any).bgSize || 'auto',
-                        backgroundRepeat: 'repeat',
                         padding: '2rem 1.5rem',
                         ...containerStyle,
                         width: isGridLayout ? '500px' : '320px',
@@ -145,7 +173,12 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                     }}
                 >
                     {photos.map((photo, index) => (
-                        <div key={index} style={{ position: 'relative', width: '100%', zIndex: 1 }}>
+                        <div
+                            key={index}
+                            style={{ position: 'relative', width: '100%', zIndex: 1 }}
+                            onMouseEnter={() => setHoveredPhoto(index)}
+                            onMouseLeave={() => setHoveredPhoto(null)}
+                        >
                             <img
                                 src={photo}
                                 alt={`Capture ${index + 1}`}
@@ -160,18 +193,46 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                                     objectFit: 'cover'
                                 }}
                             />
-                            {(selectedTheme as any).hasTiara && (
+                            {selectedTheme.hasTiara && (
                                 <img
                                     src={tiaraImg}
                                     alt="Tiara"
                                     style={{ position: 'absolute', top: -15, left: '50%', transform: 'translateX(-50%)', width: '60px', height: 'auto', zIndex: 3 }}
                                 />
                             )}
+                            {/* Retake overlay — shown on hover, excluded from html2canvas export */}
+                            {hoveredPhoto === index && (
+                                <button
+                                    onClick={() => onRetakePhoto(index)}
+                                    data-html2canvas-ignore="true"
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        background: 'rgba(0,0,0,0.45)',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.5rem',
+                                        color: 'white',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        zIndex: 4,
+                                        fontFamily: 'Quicksand'
+                                    }}
+                                >
+                                    <RotateCcw size={24} />
+                                    Retake
+                                </button>
+                            )}
                         </div>
                     ))}
 
-                    {/* Character Overlay */}
-                    {(selectedTheme as any).hasCharacter && (
+                    {/* Character Overlays */}
+                    {selectedTheme.hasCharacter && (
                         <img
                             src={characterImg}
                             alt="Character"
@@ -186,9 +247,7 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                             }}
                         />
                     )}
-
-                    {/* Second Character Overlay */}
-                    {(selectedTheme as any).hasCharacter2 && (
+                    {selectedTheme.hasCharacter2 && (
                         <img
                             src={character2Img}
                             alt="Character 2"
@@ -204,44 +263,25 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                         />
                     )}
 
-                    {!isGridLayout && (
-                        <div style={{
-                            textAlign: 'center',
-                            fontFamily: selectedTheme.font,
-                            color: selectedTheme.text,
-                            marginTop: '0.5rem',
-                            fontSize: '1.8rem',
-                            textShadow: '1px 1px 0px rgba(0,0,0,0.1)',
-                            zIndex: 1,
-                            padding: '0.5rem 1rem',
-                            borderRadius: '12px',
-                            width: '100%'
-                        }}>
-                            xoxo
-                            <div style={{ fontSize: '0.9rem', fontFamily: 'Quicksand', marginTop: '0.25rem', opacity: 0.9 }}>
-                                {new Date().toLocaleDateString()}
-                            </div>
+                    {/* Caption — unified for strip and grid layouts */}
+                    <div style={{
+                        gridColumn: isGridLayout ? '1 / -1' : undefined,
+                        textAlign: 'center',
+                        fontFamily: selectedTheme.font,
+                        color: selectedTheme.text,
+                        marginTop: '0.5rem',
+                        fontSize: '1.8rem',
+                        textShadow: '1px 1px 0px rgba(0,0,0,0.1)',
+                        zIndex: 1,
+                        padding: '0.5rem 1rem',
+                        borderRadius: '12px',
+                        width: isGridLayout ? undefined : '100%'
+                    }}>
+                        {caption || 'xoxo'}
+                        <div style={{ fontSize: '0.9rem', fontFamily: 'Quicksand', marginTop: '0.25rem', opacity: 0.9 }}>
+                            {new Date().toLocaleDateString()}
                         </div>
-                    )}
-                    {isGridLayout && (
-                        <div style={{
-                            gridColumn: '1 / -1',
-                            textAlign: 'center',
-                            fontFamily: selectedTheme.font,
-                            color: selectedTheme.text,
-                            marginTop: '0.5rem',
-                            fontSize: '1.8rem',
-                            textShadow: '1px 1px 0px rgba(0,0,0,0.1)',
-                            zIndex: 1,
-                            padding: '0.5rem 1rem',
-                            borderRadius: '12px',
-                        }}>
-                            xoxo
-                            <div style={{ fontSize: '0.9rem', fontFamily: 'Quicksand', marginTop: '0.25rem', opacity: 0.9 }}>
-                                {new Date().toLocaleDateString()}
-                            </div>
-                        </div>
-                    )}
+                    </div>
                 </div>
 
                 {/* Controls */}
@@ -258,42 +298,64 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                         }}>
                             <Palette size={24} /> Pick a Vibe
                         </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                             {THEMES.map(theme => (
                                 <button
                                     key={theme.id}
                                     onClick={() => setSelectedTheme(theme)}
                                     style={{
                                         background: theme.bg,
-                                        backgroundImage: (theme as any).bgImage ? `url(${(theme as any).bgImage})` : 'none',
-                                        backgroundSize: (theme as any).bgSize || 'auto',
                                         color: theme.text,
                                         border: selectedTheme.id === theme.id ? '3px solid var(--accent)' : '1px solid rgba(0,0,0,0.1)',
-                                        padding: '1rem',
-                                        borderRadius: '16px',
+                                        padding: '0.75rem 0.5rem',
+                                        borderRadius: '12px',
                                         textAlign: 'center',
                                         fontWeight: '700',
-                                        fontSize: '1rem',
+                                        fontSize: '0.8rem',
                                         cursor: 'pointer',
                                         transform: selectedTheme.id === theme.id ? 'scale(1.05)' : 'scale(1)',
                                         boxShadow: selectedTheme.id === theme.id ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
-                                        position: 'relative',
-                                        overflow: 'hidden'
+                                        transition: 'all 0.2s ease'
                                     }}
                                 >
-                                    <span style={{
-                                        position: 'relative',
-                                        zIndex: 2,
-                                        textShadow: (theme as any).bgImage ? '0 1px 2px rgba(255,255,255,0.8)' : 'none'
-                                    }}>
-                                        {theme.name}
-                                    </span>
-                                    {(theme as any).hasCharacter && (
-                                        <span style={{ position: 'absolute', top: 2, right: 2, fontSize: '10px' }}>✨</span>
-                                    )}
+                                    {theme.name}
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    {/* Caption editor */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            fontFamily: 'Pacifico',
+                            fontSize: '1.1rem',
+                            color: 'var(--text-primary)',
+                            marginBottom: '0.5rem'
+                        }}>
+                            Caption ✏️
+                        </label>
+                        <input
+                            type="text"
+                            value={caption}
+                            onChange={e => setCaption(e.target.value)}
+                            maxLength={20}
+                            placeholder="xoxo"
+                            style={{
+                                width: '100%',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '50px',
+                                border: '2px solid rgba(255,105,180,0.3)',
+                                fontFamily: 'Quicksand',
+                                fontSize: '1rem',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                background: 'white',
+                                outline: 'none',
+                                boxSizing: 'border-box',
+                                textAlign: 'center'
+                            }}
+                        />
                     </div>
 
                     <div className="flex-col" style={{ gap: '1rem' }}>
@@ -304,8 +366,8 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                                 disabled={isGenerating}
                                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '14px' }}
                             >
-                                <Download size={20} />
-                                PDF
+                                {isGenerating ? <Loader2 size={20} className="spin" /> : <Download size={20} />}
+                                {isGenerating ? 'Working...' : 'PDF'}
                             </button>
                             <button
                                 className="btn-primary"
@@ -313,8 +375,8 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                                 disabled={isGenerating}
                                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '14px', background: '#4ecdc4' }}
                             >
-                                <ImageIcon size={20} />
-                                JPEG
+                                {isGenerating ? <Loader2 size={20} className="spin" /> : <ImageIcon size={20} />}
+                                {isGenerating ? 'Working...' : 'JPEG'}
                             </button>
                         </div>
 
