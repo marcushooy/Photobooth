@@ -26,6 +26,12 @@ function App() {
     setView('camera');
   };
 
+  // Retake a single photo: go back to camera with existing photos minus the one at `index`
+  const handleRetakePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setView('camera');
+  };
+
   return (
     <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header style={{
@@ -75,8 +81,21 @@ function App() {
       }}>
         <div className="container" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {view === 'landing' && <Landing onStart={handleStart} />}
-          {view === 'camera' && <CameraView onComplete={handleCameraComplete} />}
-          {view === 'result' && <PhotoStrip photos={photos} layout={layout} onRetake={handleRetake} />}
+          {view === 'camera' && (
+            <CameraView
+              onComplete={handleCameraComplete}
+              initialPhotos={photos.length > 0 ? photos : undefined}
+              initialLayout={layout}
+            />
+          )}
+          {view === 'result' && (
+            <PhotoStrip
+              photos={photos}
+              layout={layout}
+              onRetake={handleRetake}
+              onRetakePhoto={handleRetakePhoto}
+            />
+          )}
         </div>
       </main>
     </div>
