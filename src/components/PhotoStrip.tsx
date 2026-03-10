@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Download, RefreshCw, Palette, Image as ImageIcon, Loader2, RotateCcw } from 'lucide-react';
+import { Download, RefreshCw, Palette, Image as ImageIcon, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import characterImg from '../assets/character_nobg_v2.png';
 import character2Img from '../assets/character2_nobg.png';
 import tiaraImg from '../assets/tiara.png';
@@ -29,7 +29,7 @@ interface Theme {
 const THEMES: Theme[] = [
     {
         id: 'princess',
-        name: 'Princess',
+        name: 'Passenger Princess',
         bg: 'linear-gradient(180deg, #ffc0e3 0%, #ffb3d9 100%)',
         text: '#d946ef',
         border: '4px solid #ffd1f0',
@@ -80,12 +80,22 @@ const THEMES: Theme[] = [
     },
 ];
 
+const FILTERS = [
+    { id: 'none', name: 'None', css: 'none' },
+    { id: 'bw', name: 'B&W', css: 'grayscale(100%)' },
+    { id: 'vintage', name: 'Vintage', css: 'sepia(70%)' },
+    { id: 'warm', name: 'Warm', css: 'saturate(1.4) hue-rotate(-15deg) brightness(1.05)' },
+    { id: 'cool', name: 'Cool', css: 'saturate(1.2) hue-rotate(20deg) brightness(1.05)' },
+    { id: 'vivid', name: 'Vivid', css: 'saturate(1.8) contrast(1.1)' },
+];
+
 export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake, onRetakePhoto }) => {
     const stripRef = useRef<HTMLDivElement>(null);
     const [selectedTheme, setSelectedTheme] = useState<Theme>(THEMES[0]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [caption, setCaption] = useState('xoxo');
     const [hoveredPhoto, setHoveredPhoto] = useState<number | null>(null);
+    const [selectedFilter, setSelectedFilter] = useState(FILTERS[0]);
 
     const isGridLayout = layout === '2x2';
     const containerStyle = isGridLayout
@@ -144,7 +154,9 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
             const link = document.createElement('a');
             link.download = 'cute-photobooth-strip.jpg';
             link.href = canvas.toDataURL('image/jpeg', 0.9);
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
         } catch (err) {
             console.error('Error generating JPEG:', err);
         } finally {
@@ -190,7 +202,8 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                                     borderRadius: '4px',
                                     boxSizing: 'border-box',
                                     background: 'white',
-                                    objectFit: 'cover'
+                                    objectFit: 'cover',
+                                    filter: selectedFilter.css
                                 }}
                             />
                             {selectedTheme.hasTiara && (
@@ -319,6 +332,42 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, layout, onRetake
                                     }}
                                 >
                                     {theme.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style={{
+                            margin: '0 0 1rem 0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontFamily: 'Pacifico',
+                            fontSize: '1.4rem',
+                            color: 'var(--text-primary)'
+                        }}>
+                            <Sparkles size={20} /> Filter
+                        </h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                            {FILTERS.map(filter => (
+                                <button
+                                    key={filter.id}
+                                    onClick={() => setSelectedFilter(filter)}
+                                    style={{
+                                        background: selectedFilter.id === filter.id ? 'var(--accent)' : 'white',
+                                        color: selectedFilter.id === filter.id ? 'white' : 'var(--text-primary)',
+                                        border: selectedFilter.id === filter.id ? '2px solid var(--accent)' : '1px solid rgba(0,0,0,0.1)',
+                                        padding: '0.5rem 0.9rem',
+                                        borderRadius: '10px',
+                                        fontWeight: 600,
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                        transform: selectedFilter.id === filter.id ? 'scale(1.05)' : 'scale(1)',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    {filter.name}
                                 </button>
                             ))}
                         </div>

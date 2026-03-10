@@ -7,9 +7,9 @@ export type LayoutType = '2' | '3' | '4' | '2x2';
 
 interface CameraViewProps {
     onComplete: (photos: string[], layout: LayoutType) => void;
-    initialPhotos?: string[];
-    initialLayout?: LayoutType;
 }
+
+const TIMER_OPTIONS = [3, 5, 10];
 
 const LAYOUTS: { type: LayoutType; label: string; iconType: 'grid' | 'grid3x3'; count: number }[] = [
     { type: '2', label: '2 Frames', iconType: 'grid', count: 2 },
@@ -18,51 +18,23 @@ const LAYOUTS: { type: LayoutType; label: string; iconType: 'grid' | 'grid3x3'; 
     { type: '2x2', label: '2x2 Grid', iconType: 'grid3x3', count: 4 },
 ];
 
-const COUNTDOWN_OPTIONS = [3, 5, 10];
-
-const playShutter = () => {
-    try {
-        const ctx = new AudioContext();
-        const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < data.length; i++) {
-            data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-        }
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(ctx.destination);
-        src.start();
-    } catch {
-        // Audio not available — silently skip
-    }
-};
-
-export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhotos, initialLayout }) => {
+export const CameraView: React.FC<CameraViewProps> = ({ onComplete }) => {
     const webcamRef = useRef<Webcam>(null);
-    const [photos, setPhotos] = useState<string[]>(initialPhotos ?? []);
+    const [photos, setPhotos] = useState<string[]>([]);
     const [countdown, setCountdown] = useState<number | null>(null);
     const [isFlashing, setIsFlashing] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'selecting' | 'counting' | 'capturing'>(
-        initialPhotos && initialPhotos.length > 0 ? 'counting' : 'idle'
-    );
-    const [selectedLayout, setSelectedLayout] = useState<LayoutType>(initialLayout ?? '3');
-    const [countdownSeconds, setCountdownSeconds] = useState(3);
-    const [mirrored, setMirrored] = useState(true);
-    const [cameraError, setCameraError] = useState<string | null>(null);
+    const [status, setStatus] = useState<'idle' | 'selecting' | 'counting' | 'capturing'>('idle');
+    const [selectedLayout, setSelectedLayout] = useState<LayoutType>('3');
+    const [timerDuration, setTimerDuration] = useState(3);
+    const [isMirrored, setIsMirrored] = useState(true);
 
     const getPhotoCount = (layout: LayoutType) => {
         return LAYOUTS.find(l => l.type === layout)?.count || 3;
     };
 
-    const startCountdown = useCallback((seconds?: number) => {
-        setStatus('counting');
-        setCountdown(seconds ?? countdownSeconds);
-    }, [countdownSeconds]);
-
     const capture = useCallback(() => {
         const imageSrc = webcamRef.current?.getScreenshot();
         if (imageSrc) {
-            playShutter();
             setIsFlashing(true);
             setTimeout(() => setIsFlashing(false), 150);
             setPhotos(prev => {
@@ -71,20 +43,18 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                 if (newPhotos.length >= photoCount) {
                     setTimeout(() => onComplete(newPhotos, selectedLayout), 1000);
                 } else {
+                    // Start next countdown automatically
                     setTimeout(() => startCountdown(), 1000);
                 }
                 return newPhotos;
             });
         }
-    }, [onComplete, selectedLayout, startCountdown]);
+    }, [onComplete, selectedLayout]);
 
-    // Kick off countdown automatically when resuming mid-session
-    useEffect(() => {
-        if (initialPhotos && initialPhotos.length > 0) {
-            startCountdown();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    const startCountdown = (duration?: number) => {
+        setStatus('counting');
+        setCountdown(duration ?? timerDuration);
+    };
 
     useEffect(() => {
         if (countdown === null) return;
@@ -93,6 +63,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
             const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
             return () => clearTimeout(timer);
         } else {
+            // Countdown finished, take photo
             setStatus('capturing');
             capture();
             setCountdown(null);
@@ -106,139 +77,109 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
 
     const confirmLayoutAndStart = () => {
         setPhotos([]);
-        startCountdown(countdownSeconds);
+        startCountdown();
     };
 
     return (
         <div className="flex-col flex-center" style={{ height: '100%', gap: '2rem', position: 'relative' }}>
-            {/* Mirror toggle */}
-            <div style={{ position: 'relative' }}>
+            <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative', borderRadius: '32px' }}>
+                <div style={{ borderRadius: '24px', overflow: 'hidden', border: '4px solid white', boxShadow: '0 10px 30px rgba(255, 105, 180, 0.2)' }}>
+                    <Webcam
+                        audio={false}
+                        ref={webcamRef}
+                        screenshotFormat="image/jpeg"
+                        width={720}
+                        height={480}
+                        mirrored={isMirrored}
+                        videoConstraints={{
+                            width: 1280,
+                            height: 720,
+                            facingMode: "user"
+                        }}
+                        style={{ display: 'block' }}
+                    />
+                </div>
+
+                {/* Mirror Toggle Button */}
                 <button
-                    onClick={() => setMirrored(m => !m)}
-                    title={mirrored ? 'Show true view' : 'Show mirrored view'}
+                    onClick={() => setIsMirrored(m => !m)}
+                    title={isMirrored ? 'Disable mirror' : 'Enable mirror'}
                     style={{
                         position: 'absolute',
-                        top: '1rem',
-                        right: '1rem',
-                        zIndex: 30,
-                        background: 'rgba(255,255,255,0.85)',
-                        border: '2px solid rgba(255,105,180,0.3)',
+                        top: '2rem',
+                        right: '2rem',
+                        background: isMirrored ? 'var(--accent)' : 'white',
+                        color: isMirrored ? 'white' : 'var(--text-primary)',
+                        border: '2px solid ' + (isMirrored ? 'var(--accent)' : 'rgba(0,0,0,0.1)'),
                         borderRadius: '50%',
-                        width: '40px',
-                        height: '40px',
+                        width: '44px',
+                        height: '44px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        zIndex: 5,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
                     }}
                 >
-                    <FlipHorizontal size={18} color="var(--accent)" />
+                    <FlipHorizontal size={20} />
                 </button>
 
-                <div className="glass-panel" style={{ padding: '1.5rem', position: 'relative', borderRadius: '32px' }}>
-                    {cameraError ? (
-                        <div style={{
-                            width: '720px',
-                            height: '480px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '1rem',
-                            color: 'var(--text-primary)',
-                            fontFamily: 'Quicksand',
-                            fontSize: '1.1rem',
-                            fontWeight: 600,
-                            textAlign: 'center',
-                            padding: '2rem'
-                        }}>
-                            <span style={{ fontSize: '3rem' }}>📷</span>
-                            <p style={{ margin: 0 }}>{cameraError}</p>
-                            <button
-                                className="btn-secondary"
-                                onClick={() => window.location.reload()}
-                                style={{ fontSize: '0.95rem', padding: '10px 24px' }}
-                            >
-                                Reload page
-                            </button>
-                        </div>
-                    ) : (
-                        <div style={{ borderRadius: '24px', overflow: 'hidden', border: '4px solid white', boxShadow: '0 10px 30px rgba(255, 105, 180, 0.2)' }}>
-                            <Webcam
-                                audio={false}
-                                ref={webcamRef}
-                                screenshotFormat="image/jpeg"
-                                width={720}
-                                height={480}
-                                mirrored={mirrored}
-                                videoConstraints={{
-                                    width: 1280,
-                                    height: 720,
-                                    facingMode: 'user'
-                                }}
-                                onUserMediaError={() => setCameraError('Camera access denied or unavailable. Please allow camera permissions and reload.')}
-                                style={{ display: 'block' }}
-                            />
-                        </div>
+                {/* Flash Effect */}
+                <AnimatePresence>
+                    {isFlashing && (
+                        <motion.div
+                            initial={{ opacity: 0.8 }}
+                            animate={{ opacity: 0 }}
+                            exit={{ opacity: 0 }}
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'white',
+                                zIndex: 20,
+                                borderRadius: '32px'
+                            }}
+                        />
                     )}
+                </AnimatePresence>
 
-                    {/* Flash Effect */}
-                    <AnimatePresence>
-                        {isFlashing && (
-                            <motion.div
-                                initial={{ opacity: 0.8 }}
-                                animate={{ opacity: 0 }}
-                                exit={{ opacity: 0 }}
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    background: 'white',
-                                    zIndex: 20,
-                                    borderRadius: '32px'
-                                }}
-                            />
-                        )}
-                    </AnimatePresence>
-
-                    {/* Countdown Overlay */}
-                    <AnimatePresence>
-                        {countdown !== null && countdown > 0 && (
-                            <motion.div
-                                initial={{ scale: 0.5, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 1.5, opacity: 0 }}
-                                key={countdown}
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    zIndex: 10,
-                                    background: 'rgba(255, 255, 255, 0.2)',
-                                    backdropFilter: 'blur(2px)',
-                                    borderRadius: '32px'
-                                }}
-                            >
-                                <div style={{
-                                    background: 'white',
-                                    width: '150px',
-                                    height: '150px',
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    boxShadow: '0 10px 30px rgba(255, 105, 180, 0.3)'
-                                }}>
-                                    <span style={{ fontSize: '5rem', fontWeight: 'bold', color: 'var(--accent)', fontFamily: 'Pacifico' }}>
-                                        {countdown}
-                                    </span>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                {/* Countdown Overlay */}
+                <AnimatePresence>
+                    {countdown !== null && countdown > 0 && (
+                        <motion.div
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 1.5, opacity: 0 }}
+                            key={countdown}
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 10,
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                backdropFilter: 'blur(2px)',
+                                borderRadius: '32px'
+                            }}
+                        >
+                            <div style={{
+                                background: 'white',
+                                width: '150px',
+                                height: '150px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 10px 30px rgba(255, 105, 180, 0.3)'
+                            }}>
+                                <span style={{ fontSize: '5rem', fontWeight: 'bold', color: 'var(--accent)', fontFamily: 'Pacifico' }}>
+                                    {countdown}
+                                </span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {status === 'idle' && (
@@ -288,32 +229,25 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                             </button>
                         ))}
                     </div>
-
-                    {/* Countdown selector */}
                     <div style={{ width: '100%' }}>
-                        <p style={{
-                            margin: '0 0 0.75rem 0',
-                            fontFamily: 'Pacifico',
-                            fontSize: '1rem',
-                            color: 'var(--text-primary)',
-                            textAlign: 'center'
-                        }}>
-                            Countdown ⏱
+                        <p style={{ margin: '0 0 0.75rem 0', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>
+                            Countdown Timer ⏱
                         </p>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                            {COUNTDOWN_OPTIONS.map(sec => (
+                            {TIMER_OPTIONS.map(sec => (
                                 <button
                                     key={sec}
-                                    onClick={() => setCountdownSeconds(sec)}
+                                    onClick={() => setTimerDuration(sec)}
                                     style={{
-                                        background: countdownSeconds === sec ? 'var(--accent)' : 'white',
-                                        color: countdownSeconds === sec ? 'white' : 'var(--text-primary)',
-                                        border: countdownSeconds === sec ? '2px solid var(--accent)' : '2px solid rgba(0,0,0,0.1)',
-                                        padding: '0.5rem 1.25rem',
-                                        borderRadius: '50px',
+                                        background: timerDuration === sec ? 'var(--accent)' : 'white',
+                                        color: timerDuration === sec ? 'white' : 'var(--text-primary)',
+                                        border: timerDuration === sec ? '3px solid var(--accent)' : '2px solid rgba(0,0,0,0.1)',
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '12px',
                                         fontWeight: 700,
                                         fontSize: '1rem',
                                         cursor: 'pointer',
+                                        transform: timerDuration === sec ? 'scale(1.08)' : 'scale(1)',
                                         transition: 'all 0.2s ease'
                                     }}
                                 >
@@ -322,7 +256,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                             ))}
                         </div>
                     </div>
-
                     <button
                         className="btn-primary"
                         onClick={confirmLayoutAndStart}
@@ -334,7 +267,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                 </div>
             )}
 
-            {status !== 'idle' && status !== 'selecting' && (
+            {status !== 'idle' && status !== 'selecting' && photos.length < getPhotoCount(selectedLayout) && (
                 <div style={{
                     fontSize: '1.5rem',
                     color: 'var(--text-primary)',
