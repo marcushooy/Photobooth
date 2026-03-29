@@ -35,24 +35,27 @@ const playShutter = () => {
         const sampleRate = ctx.sampleRate;
 
         // Short mechanical click: exponential-decay noise through a bandpass filter
-        const buf = ctx.createBuffer(1, Math.floor(sampleRate * 0.12), sampleRate);
+        // Soft muffled click: short noise burst through a lowpass filter with gentle gain
+        const duration = 0.18;
+        const buf = ctx.createBuffer(1, Math.floor(sampleRate * duration), sampleRate);
         const data = buf.getChannelData(0);
         for (let i = 0; i < data.length; i++) {
-            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.025));
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.055));
         }
 
-        const bandpass = ctx.createBiquadFilter();
-        bandpass.type = 'bandpass';
-        bandpass.frequency.value = 900;
-        bandpass.Q.value = 0.4;
+        const lowpass = ctx.createBiquadFilter();
+        lowpass.type = 'lowpass';
+        lowpass.frequency.value = 400;
+        lowpass.Q.value = 0.5;
 
         const gain = ctx.createGain();
-        gain.gain.value = 0.2;
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
 
         const src = ctx.createBufferSource();
         src.buffer = buf;
-        src.connect(bandpass);
-        bandpass.connect(gain);
+        src.connect(lowpass);
+        lowpass.connect(gain);
         gain.connect(ctx.destination);
         src.start();
     } catch {
