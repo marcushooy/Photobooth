@@ -77,7 +77,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
     const [countdown, setCountdown] = useState<number | null>(null);
     const [isFlashing, setIsFlashing] = useState(false);
     const [status, setStatus] = useState<'idle' | 'selecting' | 'counting' | 'capturing'>(
-        initialPhotos && initialPhotos.length > 0 ? 'counting' : 'idle'
+        initialPhotos && initialPhotos.length > 0 ? 'counting' : 'selecting'
     );
     const [selectedLayout, setSelectedLayout] = useState<LayoutType>(initialLayout ?? '3');
     const [countdownSeconds, setCountdownSeconds] = useState(3);
@@ -288,19 +288,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                 </div>
             </div>
 
-            {/* Idle — start button */}
-            {status === 'idle' && (
-                <button
-                    className="btn-primary"
-                    onClick={startSession}
-                    style={{ fontSize: '1.4rem', padding: '18px 56px', display: 'flex', alignItems: 'center', gap: '0.9rem' }}
-                >
-                    <Heart fill="white" size={22} />
-                    I'm Ready!
-                    <Heart fill="white" size={22} />
-                </button>
-            )}
-
             {/* Layout + timer selector */}
             {status === 'selecting' && (
                 <div
@@ -385,7 +372,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                         style={{ fontSize: '1.1rem', padding: '14px 44px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}
                     >
                         <Heart fill="white" size={18} />
-                        Start Taking Photos
+                        I'm Ready!
                     </button>
                 </div>
             )}
