@@ -145,8 +145,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
         startCountdown(countdownSeconds);
     };
 
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const camWidth = isMobile ? Math.min(window.innerWidth - 48, 480) : 720;
+    // Stable dimensions — computed once on mount, not on every render
+    const [camWidth] = useState(() => {
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+        return isMobile ? Math.min(window.innerWidth - 48, 480) : 720;
+    });
     const camHeight = Math.round(camWidth * (480 / 720));
 
     return (
@@ -215,6 +218,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                             overflow: 'hidden',
                             border: '3px solid rgba(255,255,255,0.9)',
                             boxShadow: '0 8px 28px rgba(255, 0, 122, 0.15)',
+                            transform: 'translateZ(0)',
+                            willChange: 'transform',
                         }}>
                             <Webcam
                                 audio={false}
@@ -232,20 +237,19 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                         </div>
                     )}
 
-                    {/* Flash */}
-                    <AnimatePresence>
-                        {isFlashing && (
-                            <motion.div
-                                initial={{ opacity: 0.8 }}
-                                animate={{ opacity: 0 }}
-                                exit={{ opacity: 0 }}
-                                style={{
-                                    position: 'absolute', inset: 0,
-                                    background: 'white', zIndex: 20, borderRadius: '32px',
-                                }}
-                            />
-                        )}
-                    </AnimatePresence>
+                    {/* Flash — CSS transition to avoid JS repaints during capture */}
+                    <div
+                        style={{
+                            position: 'absolute', inset: 0,
+                            background: 'white',
+                            zIndex: 20,
+                            borderRadius: '32px',
+                            pointerEvents: 'none',
+                            opacity: isFlashing ? 0.85 : 0,
+                            transition: isFlashing ? 'none' : 'opacity 0.2s ease-out',
+                            willChange: 'opacity',
+                        }}
+                    />
 
                     {/* Countdown overlay */}
                     <AnimatePresence>
