@@ -35,29 +35,37 @@ const playShutter = () => {
         const sampleRate = ctx.sampleRate;
 
         // Short mechanical click: exponential-decay noise through a bandpass filter
-        // Soft muffled click: short noise burst through a lowpass filter with gentle gain
-        const duration = 0.18;
-        const buf = ctx.createBuffer(1, Math.floor(sampleRate * duration), sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < data.length; i++) {
-            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.055));
-        }
+        // Mechanical camera shutter: two-part sound (curtain open + curtain close)
+        const masterGain = ctx.createGain();
+        masterGain.gain.value = 0.4;
+        masterGain.connect(ctx.destination);
 
-        const lowpass = ctx.createBiquadFilter();
-        lowpass.type = 'lowpass';
-        lowpass.frequency.value = 400;
-        lowpass.Q.value = 0.5;
+        const makeClick = (startTime: number, freq: number, dur: number, gainVal: number) => {
+            const buf = ctx.createBuffer(1, Math.floor(sampleRate * dur), sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * dur * 0.4));
+            }
+            const bp = ctx.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.frequency.value = freq;
+            bp.Q.value = 1.2;
 
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(gainVal, startTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, startTime + dur);
 
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(lowpass);
-        lowpass.connect(gain);
-        gain.connect(ctx.destination);
-        src.start();
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(bp);
+            bp.connect(g);
+            g.connect(masterGain);
+            src.start(startTime);
+        };
+
+        // First curtain (sharper) then second curtain (softer, slightly lower)
+        makeClick(ctx.currentTime,        1200, 0.04, 0.9);
+        makeClick(ctx.currentTime + 0.06, 900,  0.05, 0.6);
     } catch {
         // Audio not available
     }
