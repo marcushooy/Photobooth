@@ -184,7 +184,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
 
                 <div
                     className="glass-panel"
-                    style={{ padding: '1.25rem', position: 'relative', borderRadius: '32px' }}
+                    style={{ padding: '1.25rem', position: 'relative', borderRadius: '32px', overflow: 'hidden' }}
                 >
                     {cameraError ? (
                         <div style={{
@@ -257,7 +257,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                             <motion.div
                                 initial={{ scale: 0.5, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 1.5, opacity: 0 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
                                 key={countdown}
                                 style={{
                                     position: 'absolute', inset: 0,
