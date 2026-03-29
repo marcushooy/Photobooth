@@ -35,19 +35,19 @@ const playShutter = () => {
         const sampleRate = ctx.sampleRate;
 
         // Short mechanical click: exponential-decay noise through a bandpass filter
-        const buf = ctx.createBuffer(1, Math.floor(sampleRate * 0.06), sampleRate);
+        const buf = ctx.createBuffer(1, Math.floor(sampleRate * 0.12), sampleRate);
         const data = buf.getChannelData(0);
         for (let i = 0; i < data.length; i++) {
-            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.008));
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.025));
         }
 
         const bandpass = ctx.createBiquadFilter();
         bandpass.type = 'bandpass';
-        bandpass.frequency.value = 3500;
-        bandpass.Q.value = 0.6;
+        bandpass.frequency.value = 900;
+        bandpass.Q.value = 0.4;
 
         const gain = ctx.createGain();
-        gain.gain.value = 0.35;
+        gain.gain.value = 0.2;
 
         const src = ctx.createBufferSource();
         src.buffer = buf;
