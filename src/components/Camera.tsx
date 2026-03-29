@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Grid3x3, LayoutGrid, FlipHorizontal } from 'lucide-react';
+import { Heart, Grid3x3, LayoutGrid, FlipHorizontal, X } from 'lucide-react';
 
 export type LayoutType = '2' | '3' | '4' | '2x2';
 
@@ -20,17 +20,40 @@ const LAYOUTS: { type: LayoutType; label: string; iconType: 'grid' | 'grid3x3'; 
     { type: '2x2', label: '2x2 Grid', iconType: 'grid3x3', count: 4 },
 ];
 
+let _sharedAudioCtx: AudioContext | null = null;
+const getAudioCtx = () => {
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+        _sharedAudioCtx = new AudioContext();
+    }
+    return _sharedAudioCtx;
+};
+
 const playShutter = () => {
     try {
-        const ctx = new AudioContext();
-        const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
+        const ctx = getAudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+        const sampleRate = ctx.sampleRate;
+
+        // Short mechanical click: exponential-decay noise through a bandpass filter
+        const buf = ctx.createBuffer(1, Math.floor(sampleRate * 0.06), sampleRate);
         const data = buf.getChannelData(0);
         for (let i = 0; i < data.length; i++) {
-            data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.008));
         }
+
+        const bandpass = ctx.createBiquadFilter();
+        bandpass.type = 'bandpass';
+        bandpass.frequency.value = 3500;
+        bandpass.Q.value = 0.6;
+
+        const gain = ctx.createGain();
+        gain.gain.value = 0.35;
+
         const src = ctx.createBufferSource();
         src.buffer = buf;
-        src.connect(ctx.destination);
+        src.connect(bandpass);
+        bandpass.connect(gain);
+        gain.connect(ctx.destination);
         src.start();
     } catch {
         // Audio not available
@@ -49,6 +72,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
     const [countdownSeconds, setCountdownSeconds] = useState(3);
     const [mirrored, setMirrored] = useState(true);
     const [cameraError, setCameraError] = useState<string | null>(null);
+    const isStartingRef = useRef(false);
 
     const getPhotoCount = (layout: LayoutType) => {
         return LAYOUTS.find(l => l.type === layout)?.count || 3;
@@ -103,9 +127,16 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
     };
 
     const confirmLayoutAndStart = () => {
+        if (isStartingRef.current) return;
+        isStartingRef.current = true;
+        setTimeout(() => { isStartingRef.current = false; }, 1000);
         setPhotos([]);
         startCountdown(countdownSeconds);
     };
+
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const camWidth = isMobile ? Math.min(window.innerWidth - 48, 480) : 720;
+    const camHeight = Math.round(camWidth * (480 / 720));
 
     return (
         <div className="flex-col flex-center" style={{ height: '100%', gap: '2rem', position: 'relative' }}>
@@ -143,8 +174,8 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                 >
                     {cameraError ? (
                         <div style={{
-                            width: '720px',
-                            height: '480px',
+                            width: `${camWidth}px`,
+                            height: `${camHeight}px`,
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
@@ -178,14 +209,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                                 audio={false}
                                 ref={webcamRef}
                                 screenshotFormat="image/jpeg"
-                                width={720}
-                                height={480}
+                                width={camWidth}
+                                height={camHeight}
                                 mirrored={mirrored}
                                 videoConstraints={{ width: 1280, height: 720, facingMode: 'user' }}
                                 onUserMediaError={() =>
                                     setCameraError('Camera access denied or unavailable. Please allow camera permissions and reload.')
                                 }
-                                style={{ display: 'block' }}
+                                style={{ display: 'block', width: '100%', height: 'auto' }}
                             />
                         </div>
                     )}
@@ -259,7 +290,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
             {status === 'selecting' && (
                 <div
                     className="glass-panel"
-                    style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center', maxWidth: '500px' }}
+                    style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center', maxWidth: '500px', width: '100%', boxSizing: 'border-box' }}
                 >
                     <h3 style={{
                         fontFamily: 'Cormorant Garamond',
@@ -344,21 +375,42 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                 </div>
             )}
 
-            {/* Pose counter */}
+            {/* Pose counter + cancel */}
             {status !== 'idle' && status !== 'selecting' && photos.length < getPhotoCount(selectedLayout) && (
-                <div style={{
-                    fontFamily: 'Cormorant Garamond',
-                    fontStyle: 'italic',
-                    fontSize: '1.5rem',
-                    color: '#6B1845',
-                    background: 'rgba(255,255,255,0.82)',
-                    padding: '0.5rem 1.8rem',
-                    borderRadius: '100px',
-                    backdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(255,0,122,0.12)',
-                    letterSpacing: '0.02em',
-                }}>
-                    Pose {photos.length + 1} of {getPhotoCount(selectedLayout)} ✦
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                        fontFamily: 'Cormorant Garamond',
+                        fontStyle: 'italic',
+                        fontSize: '1.5rem',
+                        color: '#6B1845',
+                        background: 'rgba(255,255,255,0.82)',
+                        padding: '0.5rem 1.8rem',
+                        borderRadius: '100px',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255,0,122,0.12)',
+                        letterSpacing: '0.02em',
+                    }}>
+                        Pose {photos.length + 1} of {getPhotoCount(selectedLayout)} ✦
+                    </div>
+                    <button
+                        onClick={() => { setPhotos([]); setCountdown(null); setStatus('selecting'); }}
+                        title="Cancel session"
+                        style={{
+                            background: 'rgba(255,255,255,0.82)',
+                            border: '1px solid rgba(255,0,122,0.12)',
+                            borderRadius: '50%',
+                            width: '40px',
+                            height: '40px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#A04070',
+                            backdropFilter: 'blur(12px)',
+                        }}
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
             )}
         </div>
