@@ -109,7 +109,12 @@ interface Sticker {
     y: number; // percentage of photo height
 }
 
-const STICKER_EMOJIS = ['🌸', '⭐', '💕', '🎀', '✨', '🌈', '🦋', '🍀', '💫', '🎉', '🤍', '🌟'];
+const STICKER_EMOJIS = [
+    '🤍', '🩵', '💕', '💗', '💖', '💝', '❤️', '🧡',
+    '🌸', '🌺', '🌷', '🌼', '🍀', '🌿',
+    '⭐', '🌟', '💫', '✨', '🎀', '🎉',
+    '🦋', '🌈', '🍓', '🫧', '🪩', '🫶',
+];
 
 const SectionLabel: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
