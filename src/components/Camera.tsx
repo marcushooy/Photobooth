@@ -153,7 +153,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
     const camHeight = Math.round(camWidth * (480 / 720));
 
     return (
-        <div className="flex-col flex-center" style={{ height: '100%', gap: '2rem', position: 'relative' }}>
+        <div className="flex-col flex-center" style={{ height: '100%', gap: '2rem', position: 'relative', alignItems: 'center' }}>
 
             {/* Camera panel */}
             <div style={{ position: 'relative' }}>
@@ -390,44 +390,45 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                 </div>
             )}
 
-            {/* Pose counter + cancel */}
-            {status !== 'idle' && status !== 'selecting' && photos.length < getPhotoCount(selectedLayout) && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{
-                        fontFamily: 'Cormorant Garamond',
-                        fontStyle: 'italic',
-                        fontSize: '1.5rem',
-                        color: '#6B1845',
-                        background: 'rgba(255,255,255,0.82)',
-                        padding: '0.5rem 1.8rem',
-                        borderRadius: '100px',
-                        backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255,0,122,0.12)',
-                        letterSpacing: '0.02em',
-                    }}>
-                        Pose {photos.length + 1} of {getPhotoCount(selectedLayout)} ✦
-                    </div>
-                    <button
-                        onClick={() => { setPhotos([]); setCountdown(null); setStatus('selecting'); }}
-                        title="Cancel session"
-                        style={{
-                            background: 'rgba(255,255,255,0.82)',
-                            border: '1px solid rgba(255,0,122,0.12)',
-                            borderRadius: '50%',
-                            width: '40px',
-                            height: '40px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            color: '#A04070',
-                            backdropFilter: 'blur(12px)',
-                        }}
-                    >
-                        <X size={18} />
-                    </button>
+            {/* Pose counter + cancel — always rendered to avoid layout shift */}
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                visibility: (status !== 'idle' && status !== 'selecting' && photos.length < getPhotoCount(selectedLayout)) ? 'visible' : 'hidden',
+            }}>
+                <div style={{
+                    fontFamily: 'Cormorant Garamond',
+                    fontStyle: 'italic',
+                    fontSize: '1.5rem',
+                    color: '#6B1845',
+                    background: 'rgba(255,255,255,0.82)',
+                    padding: '0.5rem 1.8rem',
+                    borderRadius: '100px',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255,0,122,0.12)',
+                    letterSpacing: '0.02em',
+                }}>
+                    Pose {photos.length + 1} of {getPhotoCount(selectedLayout)} ✦
                 </div>
-            )}
+                <button
+                    onClick={() => { setPhotos([]); setCountdown(null); setStatus('selecting'); }}
+                    title="Cancel session"
+                    style={{
+                        background: 'rgba(255,255,255,0.82)',
+                        border: '1px solid rgba(255,0,122,0.12)',
+                        borderRadius: '50%',
+                        width: '40px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: '#A04070',
+                        backdropFilter: 'blur(12px)',
+                    }}
+                >
+                    <X size={18} />
+                </button>
+            </div>
         </div>
     );
 };
