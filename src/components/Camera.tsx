@@ -132,7 +132,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
         }
     }, [countdown, capture]);
 
-    const startSession = () => {
+    const _startSession = () => {
         setPhotos([]);
         setStatus('selecting');
     };
@@ -208,7 +208,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onComplete, initialPhoto
                                 className="btn-secondary"
                                 onClick={() => window.location.reload()}
                                 style={{ fontSize: '0.95rem', padding: '10px 28px' }}
-                            >
+                            
                                 Reload page
                             </button>
                         </div>
